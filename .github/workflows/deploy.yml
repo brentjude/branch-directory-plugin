@@ -7,8 +7,8 @@ on:
       - master
 
 jobs:
-  web-deploy:
-    name: 🎉 Deploy
+  deploy-server-1:
+    name: 🎉 Deploy to Test Web
     runs-on: ubuntu-latest
     
     steps:
@@ -24,6 +24,30 @@ jobs:
         protocol: ftp
         port: 21
         server-dir: /domains/modernchameleonph.com/public_html/wp-content/plugins/branch-manager/
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/.vscode/**
+          **/README.md
+
+  deploy-server-2:
+    name: 🎉 Deploy to CDT
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 🚚 Get latest code
+      uses: actions/checkout@v3
+
+    - name: 📂 Sync files to Server 2
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_SERVER_2 }}
+        username: ${{ secrets.FTP_USERNAME_2 }}
+        password: ${{ secrets.FTP_PASSWORD_2 }}
+        protocol: ftp
+        port: 21
+        server-dir: /domains/consuelodeltriste.com/public_html/wp-content/plugins/branch-manager/
         exclude: |
           **/.git*
           **/.git*/**

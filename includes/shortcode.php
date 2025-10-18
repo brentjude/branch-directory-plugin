@@ -64,24 +64,63 @@ function bm_branch_map_shortcode($atts) {
       /* Filter Section */
       .branch-filters {
           display: flex;
-          gap: 15px;
-          margin-bottom: 20px;
+          gap: 20px;
+          margin-bottom: 30px;
           flex-wrap: wrap;
-          align-items: center;
+          align-items: flex-end;
       }
+      
+      .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+      }
+      
+      .filter-group.search-group {
+          flex: 1;
+          min-width: 250px;
+      }
+      
+      .filter-group label {
+          font-size: 14px;
+          font-weight: 600;
+          color: #330A48;
+          margin-bottom: 0;
+      }
+      
       .branch-filters input,
       .branch-filters select {
-          padding: 10px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 14px;
+          padding: 12px 16px;
+          border: 2px solid #ddd;
+          border-radius: 6px;
+          font-size: 15px;
+          transition: all 0.3s ease;
+          background: white;
       }
+      
+      .branch-filters input:focus,
+      .branch-filters select:focus {
+          outline: none;
+          border-color: #330A48;
+          box-shadow: 0 0 0 3px rgba(51, 10, 72, 0.1);
+      }
+      
       .branch-filters input {
-          flex: 1;
-          min-width: 200px;
+          width: 100%;
       }
+      
       .branch-filters select {
-          min-width: 150px;
+          min-width: 180px;
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23330A48' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          padding-right: 40px;
+      }
+      
+      .branch-filters input::placeholder {
+          color: #999;
       }
 
       /* Grid - 3 columns */
@@ -96,10 +135,22 @@ function bm_branch_map_shortcode($atts) {
           .branch-grid {
               grid-template-columns: repeat(2, 1fr);
           }
+          .branch-filters {
+              gap: 15px;
+          }
+          .filter-group.search-group {
+              min-width: 100%;
+          }
       }
       @media (max-width: 576px) {
           .branch-grid {
               grid-template-columns: 1fr;
+          }
+          .filter-group {
+              width: 100%;
+          }
+          .branch-filters select {
+              width: 100%;
           }
       }
 
@@ -267,27 +318,38 @@ function bm_branch_map_shortcode($atts) {
 
     <!-- Filters -->
     <div class="branch-filters">
-        <input type="text" id="branch-search" placeholder="Search branches...">
+        <div class="filter-group search-group">
+            <label for="branch-search">Search Branches</label>
+            <input type="text" id="branch-search" placeholder="Search by name or address...">
+        </div>
+        
         <?php if ($country_count > 1): ?>
-        <select id="country-filter">
-            <option value="">All Countries</option>
-            <?php foreach($countries as $country): ?>
-                <option value="<?php echo esc_attr($country->term_id); ?>" 
-                        <?php selected($selected_country, $country->term_id); ?>>
-                    <?php echo esc_html($country->name); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
+        <div class="filter-group">
+            <label for="country-filter">Country</label>
+            <select id="country-filter">
+                <option value="">All Countries</option>
+                <?php foreach($countries as $country): ?>
+                    <option value="<?php echo esc_attr($country->term_id); ?>" 
+                            <?php selected($selected_country, $country->term_id); ?>>
+                        <?php echo esc_html($country->name); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
         <?php endif; ?>
-        <select id="city-filter">
-            <option value="">All Cities</option>
-            <?php foreach($cities as $city): ?>
-                <option value="<?php echo esc_attr($city->term_id); ?>" 
-                        <?php selected($selected_city, $city->term_id); ?>>
-                    <?php echo esc_html($city->name); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
+        
+        <div class="filter-group">
+            <label for="city-filter">City</label>
+            <select id="city-filter">
+                <option value="">All Cities</option>
+                <?php foreach($cities as $city): ?>
+                    <option value="<?php echo esc_attr($city->term_id); ?>" 
+                            <?php selected($selected_city, $city->term_id); ?>>
+                        <?php echo esc_html($city->name); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
     </div>
 
     <!-- Branches Grid -->
