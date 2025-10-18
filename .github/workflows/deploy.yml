@@ -44,7 +44,7 @@ jobs:
       with:
         server: ${{ secrets.FTP_SERVER_2 }}
         username: ${{ secrets.FTP_USERNAME_2 }}
-        password: ${{ secrets.FTP_PASSWORD_2 }}
+        password: ${{ secrets.FTP_PASSWORD }}
         protocol: ftp
         port: 21
         server-dir: /domains/consuelodeltriste.com/public_html/wp-content/plugins/branch-manager/
