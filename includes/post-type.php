@@ -32,7 +32,7 @@ function bm_register_branch_cpt() {
 add_action('init', 'bm_register_branch_cpt');
 
 /**
- * Register Region Taxonomy (replaces Country)
+ * Register Region Taxonomy (Parent)
  */
 function bm_register_region_taxonomy() {
     $labels = [
@@ -40,8 +40,8 @@ function bm_register_region_taxonomy() {
         'singular_name'     => 'Region',
         'search_items'      => 'Search Regions',
         'all_items'         => 'All Regions',
-        'parent_item'       => 'Parent Region',
-        'parent_item_colon' => 'Parent Region:',
+        'parent_item'       => null,
+        'parent_item_colon' => null,
         'edit_item'         => 'Edit Region',
         'update_item'       => 'Update Region',
         'add_new_item'      => 'Add New Region',
@@ -64,7 +64,7 @@ function bm_register_region_taxonomy() {
 add_action('init', 'bm_register_region_taxonomy');
 
 /**
- * Register Province Taxonomy (with hierarchical support)
+ * Register Province Taxonomy (Child of Region - using hierarchical parent feature)
  */
 function bm_register_province_taxonomy() {
     $labels = [
@@ -72,8 +72,8 @@ function bm_register_province_taxonomy() {
         'singular_name'     => 'Province',
         'search_items'      => 'Search Provinces',
         'all_items'         => 'All Provinces',
-        'parent_item'       => 'Parent Province',
-        'parent_item_colon' => 'Parent Province:',
+        'parent_item'       => 'Parent Region',
+        'parent_item_colon' => 'Parent Region:',
         'edit_item'         => 'Edit Province',
         'update_item'       => 'Update Province',
         'add_new_item'      => 'Add New Province',
@@ -89,6 +89,7 @@ function bm_register_province_taxonomy() {
         'query_var'         => true,
         'rewrite'           => ['slug' => 'province'],
         'show_in_rest'      => true,
+        'meta_box_cb'       => 'bm_province_meta_box_callback',
     ];
 
     register_taxonomy('branch_province', ['branch'], $args);
@@ -96,35 +97,118 @@ function bm_register_province_taxonomy() {
 add_action('init', 'bm_register_province_taxonomy');
 
 /**
- * Add Custom Meta Box for Province-Region Relationship
+ * Custom Meta Box for Province Selection with Region Filter
  */
-function bm_add_province_meta_box() {
-    add_meta_box(
-        'province_region',
-        'Region Assignment',
-        'bm_render_province_region_meta_box',
-        'branch_province',
-        'side',
-        'default'
-    );
-}
-add_action('branch_province_edit_form', 'bm_add_province_meta_box');
-add_action('branch_province_add_form', 'bm_add_province_meta_box');
-
-function bm_render_province_region_meta_box($term) {
-    $region_id = '';
-    if (isset($term->term_id)) {
-        $region_id = get_term_meta($term->term_id, 'parent_region', true);
-    }
+function bm_province_meta_box_callback($post) {
+    $regions = get_terms(['taxonomy' => 'branch_region', 'hide_empty' => false]);
+    $provinces = get_terms(['taxonomy' => 'branch_province', 'hide_empty' => false]);
+    $selected_provinces = wp_get_post_terms($post->ID, 'branch_province', ['fields' => 'ids']);
+    ?>
+    <div id="taxonomy-branch_province" class="categorydiv">
+        <div id="branch-province-filter" style="margin-bottom: 10px;">
+            <label><strong>Filter by Region:</strong></label>
+            <select id="region-province-filter" style="width: 100%;">
+                <option value="">All Regions</option>
+                <?php foreach($regions as $region): ?>
+                    <option value="<?php echo esc_attr($region->term_id); ?>">
+                        <?php echo esc_html($region->name); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        
+        <ul id="branch_province-checklist" class="categorychecklist form-no-clear">
+            <?php foreach($provinces as $province): 
+                $parent_region = get_term_meta($province->term_id, 'parent_region', true);
+                $checked = in_array($province->term_id, $selected_provinces) ? 'checked' : '';
+            ?>
+                <li class="province-item" data-region="<?php echo esc_attr($parent_region); ?>">
+                    <label>
+                        <input type="checkbox" name="tax_input[branch_province][]" 
+                               value="<?php echo esc_attr($province->term_id); ?>" 
+                               <?php echo $checked; ?>>
+                        <?php echo esc_html($province->name); ?>
+                        <?php if($parent_region): 
+                            $region = get_term($parent_region, 'branch_region');
+                            if($region && !is_wp_error($region)):
+                        ?>
+                            <em>(<?php echo esc_html($region->name); ?>)</em>
+                        <?php endif; endif; ?>
+                    </label>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
     
+    <script>
+    jQuery(document).ready(function($) {
+        $('#region-province-filter').on('change', function() {
+            var selectedRegion = $(this).val();
+            
+            if (!selectedRegion) {
+                $('.province-item').show();
+            } else {
+                $('.province-item').each(function() {
+                    var itemRegion = $(this).attr('data-region');
+                    if (itemRegion === selectedRegion) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            }
+        });
+    });
+    </script>
+    
+    <style>
+    .province-item em {
+        color: #666;
+        font-size: 0.9em;
+    }
+    </style>
+    <?php
+}
+
+/**
+ * Add Parent Region Field to Province Edit Page
+ */
+add_action('branch_province_edit_form_fields', 'bm_add_province_region_field', 10, 2);
+add_action('branch_province_add_form_fields', 'bm_add_province_region_field_new');
+
+function bm_add_province_region_field($term) {
+    $region_id = get_term_meta($term->term_id, 'parent_region', true);
+    $regions = get_terms(['taxonomy' => 'branch_region', 'hide_empty' => false]);
+    ?>
+    <tr class="form-field">
+        <th scope="row">
+            <label for="parent_region">Parent Region</label>
+        </th>
+        <td>
+            <select name="parent_region" id="parent_region" class="postform">
+                <option value="">-- Select Region --</option>
+                <?php foreach($regions as $region): ?>
+                    <option value="<?php echo esc_attr($region->term_id); ?>" 
+                            <?php selected($region_id, $region->term_id); ?>>
+                        <?php echo esc_html($region->name); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <p class="description">Select the parent region for this province.</p>
+        </td>
+    </tr>
+    <?php
+}
+
+function bm_add_province_region_field_new() {
     $regions = get_terms(['taxonomy' => 'branch_region', 'hide_empty' => false]);
     ?>
     <div class="form-field">
         <label for="parent_region">Parent Region</label>
-        <select name="parent_region" id="parent_region" style="width: 100%;">
+        <select name="parent_region" id="parent_region" class="postform">
             <option value="">-- Select Region --</option>
             <?php foreach($regions as $region): ?>
-                <option value="<?php echo esc_attr($region->term_id); ?>" <?php selected($region_id, $region->term_id); ?>>
+                <option value="<?php echo esc_attr($region->term_id); ?>">
                     <?php echo esc_html($region->name); ?>
                 </option>
             <?php endforeach; ?>

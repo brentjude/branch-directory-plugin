@@ -21,11 +21,27 @@ function bm_branch_map_shortcode($atts) {
     
     // Get all regions and provinces
     $regions = get_terms(['taxonomy' => 'branch_region', 'hide_empty' => true]);
-    $all_provinces = get_terms(['taxonomy' => 'branch_province', 'hide_empty' => true]);
     
-    // Build province-region mapping
+    // Get provinces - filter by region if selected
+    $province_args = ['taxonomy' => 'branch_province', 'hide_empty' => true];
+    if ($selected_region) {
+        // Get all provinces
+        $all_provinces_temp = get_terms(['taxonomy' => 'branch_province', 'hide_empty' => true]);
+        $provinces = [];
+        foreach($all_provinces_temp as $prov) {
+            $parent_region = get_term_meta($prov->term_id, 'parent_region', true);
+            if ($parent_region == $selected_region) {
+                $provinces[] = $prov;
+            }
+        }
+    } else {
+        $provinces = get_terms($province_args);
+    }
+    
+    // Build province-region mapping for JavaScript
+    $all_provinces_for_js = get_terms(['taxonomy' => 'branch_province', 'hide_empty' => true]);
     $province_region_map = [];
-    foreach($all_provinces as $province) {
+    foreach($all_provinces_for_js as $province) {
         $parent_region = get_term_meta($province->term_id, 'parent_region', true);
         if ($parent_region) {
             $province_region_map[$province->term_id] = $parent_region;
@@ -41,20 +57,40 @@ function bm_branch_map_shortcode($atts) {
     
     // Add tax query if region/province selected
     $tax_query = [];
-    if ($selected_region) {
-        $tax_query[] = [
-            'taxonomy' => 'branch_region',
-            'field' => 'term_id',
-            'terms' => $selected_region
-        ];
-    }
-    if ($selected_province) {
+    if ($selected_region && !$selected_province) {
+        // If only region selected, get all provinces under this region
+        $region_provinces = [];
+        foreach($all_provinces_for_js as $prov) {
+            $parent_region = get_term_meta($prov->term_id, 'parent_region', true);
+            if ($parent_region == $selected_region) {
+                $region_provinces[] = $prov->term_id;
+            }
+        }
+        
+        if (!empty($region_provinces)) {
+            $tax_query[] = [
+                'taxonomy' => 'branch_province',
+                'field' => 'term_id',
+                'terms' => $region_provinces,
+                'operator' => 'IN'
+            ];
+        } else {
+            // If no provinces under region, filter by region directly
+            $tax_query[] = [
+                'taxonomy' => 'branch_region',
+                'field' => 'term_id',
+                'terms' => $selected_region
+            ];
+        }
+    } elseif ($selected_province) {
+        // If province selected, filter by province
         $tax_query[] = [
             'taxonomy' => 'branch_province',
             'field' => 'term_id',
             'terms' => $selected_province
         ];
     }
+    
     if (!empty($tax_query)) {
         $query_args['tax_query'] = $tax_query;
     }
@@ -69,6 +105,7 @@ function bm_branch_map_shortcode($atts) {
     <link rel="stylesheet" href="https://unpkg.com/micromodal/dist/micromodal.css">
 
     <style>
+      /* ...existing styles... */
       /* Filter Section - Two Row Layout */
       .branch-filters {
           display: flex;
@@ -484,10 +521,13 @@ function bm_branch_map_shortcode($atts) {
                 <label for="province-filter">Province</label>
                 <select id="province-filter">
                     <option value="">All Provinces</option>
-                    <?php foreach($all_provinces as $province): ?>
+                    <?php foreach($all_provinces_for_js as $province): 
+                        $parent_region = get_term_meta($province->term_id, 'parent_region', true);
+                    ?>
                         <option value="<?php echo esc_attr($province->term_id); ?>" 
-                                data-region="<?php echo esc_attr(get_term_meta($province->term_id, 'parent_region', true)); ?>"
-                                <?php selected($selected_province, $province->term_id); ?>>
+                                data-region="<?php echo esc_attr($parent_region); ?>"
+                                <?php selected($selected_province, $province->term_id); ?>
+                                style="<?php echo ($selected_region && $parent_region != $selected_region) ? 'display:none;' : ''; ?>">
                             <?php echo esc_html($province->name); ?>
                         </option>
                     <?php endforeach; ?>
@@ -687,19 +727,27 @@ function bm_branch_map_shortcode($atts) {
     regionFilter.addEventListener('change', function() {
         const selectedRegion = this.value;
         
-        // Clear province filter
-        provinceFilter.innerHTML = '<option value="">All Provinces</option>';
+        // Reset province filter
+        provinceFilter.value = '';
         
-        // Filter and add provinces based on selected region
-        allProvinceOptions.slice(1).forEach(option => {
+        // Show/hide provinces based on selected region
+        allProvinceOptions.forEach(option => {
+            if (option.value === '') {
+                option.style.display = 'block'; // Always show "All Provinces"
+                return;
+            }
+            
             const provinceRegion = option.getAttribute('data-region');
+            
             if (!selectedRegion || provinceRegion === selectedRegion) {
-                provinceFilter.appendChild(option.cloneNode(true));
+                option.style.display = 'block';
+            } else {
+                option.style.display = 'none';
             }
         });
         
-        // Apply real-time filtering
-        filterBranches();
+        // Reload page with region filter
+        updateURLFilters();
     });
 
     function filterBranches() {
@@ -713,12 +761,27 @@ function bm_branch_map_shortcode($atts) {
             const branchId = card.dataset.branchId;
             const title = card.dataset.title.toLowerCase();
             const address = card.dataset.address.toLowerCase();
-            const region = card.dataset.region;
-            const province = card.dataset.province;
-
+            const cardProvinces = card.dataset.province.split(',').filter(p => p);
+            
             const matchesSearch = title.includes(searchTerm) || address.includes(searchTerm);
-            const matchesRegion = !selectedRegion || region.split(',').includes(selectedRegion);
-            const matchesProvince = !selectedProvince || province.split(',').includes(selectedProvince);
+            
+            let matchesRegion = true;
+            let matchesProvince = true;
+            
+            // Check region match
+            if (selectedRegion) {
+                matchesRegion = false;
+                cardProvinces.forEach(provId => {
+                    if (provinceRegionMap[provId] == selectedRegion) {
+                        matchesRegion = true;
+                    }
+                });
+            }
+            
+            // Check province match
+            if (selectedProvince) {
+                matchesProvince = cardProvinces.includes(selectedProvince);
+            }
 
             if (matchesSearch && matchesRegion && matchesProvince) {
                 card.style.display = 'block';
@@ -834,12 +897,9 @@ function bm_branch_map_shortcode($atts) {
     <?php if (strtolower($atts['show_map']) === 'true'): ?>
     document.addEventListener("DOMContentLoaded", function() {
         initializeMap();
-        filterBranches();
         
-        // Initialize province filter based on selected region
-        if (regionFilter.value) {
-            regionFilter.dispatchEvent(new Event('change'));
-        }
+        // Run initial filter to match server-side filtering
+        filterBranches();
     });
     <?php endif; ?>
     </script>
