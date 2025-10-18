@@ -32,21 +32,21 @@ function bm_register_branch_cpt() {
 add_action('init', 'bm_register_branch_cpt');
 
 /**
- * Register Country Taxonomy
+ * Register Region Taxonomy (replaces Country)
  */
-function bm_register_country_taxonomy() {
+function bm_register_region_taxonomy() {
     $labels = [
-        'name'              => 'Countries',
-        'singular_name'     => 'Country',
-        'search_items'      => 'Search Countries',
-        'all_items'         => 'All Countries',
-        'parent_item'       => 'Parent Country',
-        'parent_item_colon' => 'Parent Country:',
-        'edit_item'         => 'Edit Country',
-        'update_item'       => 'Update Country',
-        'add_new_item'      => 'Add New Country',
-        'new_item_name'     => 'New Country Name',
-        'menu_name'         => 'Countries',
+        'name'              => 'Regions',
+        'singular_name'     => 'Region',
+        'search_items'      => 'Search Regions',
+        'all_items'         => 'All Regions',
+        'parent_item'       => 'Parent Region',
+        'parent_item_colon' => 'Parent Region:',
+        'edit_item'         => 'Edit Region',
+        'update_item'       => 'Update Region',
+        'add_new_item'      => 'Add New Region',
+        'new_item_name'     => 'New Region Name',
+        'menu_name'         => 'Regions',
     ];
 
     $args = [
@@ -55,16 +55,16 @@ function bm_register_country_taxonomy() {
         'show_ui'           => true,
         'show_admin_column' => true,
         'query_var'         => true,
-        'rewrite'           => ['slug' => 'country'],
+        'rewrite'           => ['slug' => 'region'],
         'show_in_rest'      => true,
     ];
 
-    register_taxonomy('branch_country', ['branch'], $args);
+    register_taxonomy('branch_region', ['branch'], $args);
 }
-add_action('init', 'bm_register_country_taxonomy');
+add_action('init', 'bm_register_region_taxonomy');
 
 /**
- * Register Province Taxonomy
+ * Register Province Taxonomy (with hierarchical support)
  */
 function bm_register_province_taxonomy() {
     $labels = [
@@ -96,36 +96,54 @@ function bm_register_province_taxonomy() {
 add_action('init', 'bm_register_province_taxonomy');
 
 /**
- * Register City Taxonomy
+ * Add Custom Meta Box for Province-Region Relationship
  */
-function bm_register_city_taxonomy() {
-    $labels = [
-        'name'              => 'Cities',
-        'singular_name'     => 'City',
-        'search_items'      => 'Search Cities',
-        'all_items'         => 'All Cities',
-        'parent_item'       => 'Parent City',
-        'parent_item_colon' => 'Parent City:',
-        'edit_item'         => 'Edit City',
-        'update_item'       => 'Update City',
-        'add_new_item'      => 'Add New City',
-        'new_item_name'     => 'New City Name',
-        'menu_name'         => 'Cities',
-    ];
-
-    $args = [
-        'hierarchical'      => true,
-        'labels'            => $labels,
-        'show_ui'           => true,
-        'show_admin_column' => true,
-        'query_var'         => true,
-        'rewrite'           => ['slug' => 'city'],
-        'show_in_rest'      => true,
-    ];
-
-    register_taxonomy('branch_city', ['branch'], $args);
+function bm_add_province_meta_box() {
+    add_meta_box(
+        'province_region',
+        'Region Assignment',
+        'bm_render_province_region_meta_box',
+        'branch_province',
+        'side',
+        'default'
+    );
 }
-add_action('init', 'bm_register_city_taxonomy');
+add_action('branch_province_edit_form', 'bm_add_province_meta_box');
+add_action('branch_province_add_form', 'bm_add_province_meta_box');
+
+function bm_render_province_region_meta_box($term) {
+    $region_id = '';
+    if (isset($term->term_id)) {
+        $region_id = get_term_meta($term->term_id, 'parent_region', true);
+    }
+    
+    $regions = get_terms(['taxonomy' => 'branch_region', 'hide_empty' => false]);
+    ?>
+    <div class="form-field">
+        <label for="parent_region">Parent Region</label>
+        <select name="parent_region" id="parent_region" style="width: 100%;">
+            <option value="">-- Select Region --</option>
+            <?php foreach($regions as $region): ?>
+                <option value="<?php echo esc_attr($region->term_id); ?>" <?php selected($region_id, $region->term_id); ?>>
+                    <?php echo esc_html($region->name); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <p class="description">Select the parent region for this province.</p>
+    </div>
+    <?php
+}
+
+/**
+ * Save Province-Region Relationship
+ */
+function bm_save_province_region($term_id) {
+    if (isset($_POST['parent_region'])) {
+        update_term_meta($term_id, 'parent_region', sanitize_text_field($_POST['parent_region']));
+    }
+}
+add_action('created_branch_province', 'bm_save_province_region');
+add_action('edited_branch_province', 'bm_save_province_region');
 
 /**
  * Add Custom Meta Boxes (Contact, Address, Lat, Lng)
