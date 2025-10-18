@@ -21,8 +21,9 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        protocol: ftp
+        protocol: ftps
         port: 21
+        security: loose
         server-dir: /home/u311421857/domains/modernchameleonph.com/public_html/wp-content/plugins/branch-manager/
         exclude: |
           **/.git*
