@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Branch Manager
  * Description: Manage and display company branches with map + grid integration.
- * Version: 1.3
+ * Version: 1.4
  * Author: Modern Chameleon Digital
  * Author URI: https://modernchameleonph.com
  */

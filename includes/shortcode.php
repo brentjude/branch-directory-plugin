@@ -2,16 +2,59 @@
 /**
  * Shortcode: [branch_map]
  * Display branches on a map + grid list with filters and modal
+ * Attributes:
+ *  - per_page: Number of branches per page (default: 9)
+ *  - show_map: Show/hide map by default (default: true)
  */
-function bm_branch_map_shortcode() {
+function bm_branch_map_shortcode($atts) {
+    $atts = shortcode_atts([
+        'per_page' => 9,
+        'show_map' => 'true'
+    ], $atts);
+    
     ob_start();
+    
+    // Get URL parameters for country/city selection
+    $selected_country = isset($_GET['country']) ? intval($_GET['country']) : '';
+    $selected_city = isset($_GET['city']) ? intval($_GET['city']) : '';
+    $current_page = isset($_GET['branch_page']) ? max(1, intval($_GET['branch_page'])) : 1;
     
     // Get all countries and cities
     $countries = get_terms(['taxonomy' => 'branch_country', 'hide_empty' => true]);
     $cities = get_terms(['taxonomy' => 'branch_city', 'hide_empty' => true]);
     $country_count = is_array($countries) ? count($countries) : 0;
     
-    $branches = new WP_Query(['post_type' => 'branch', 'posts_per_page' => -1]);
+    // Query args with pagination
+    $query_args = [
+        'post_type' => 'branch',
+        'posts_per_page' => intval($atts['per_page']),
+        'paged' => $current_page
+    ];
+    
+    // Add tax query if country or city selected
+    $tax_query = [];
+    if ($selected_country) {
+        $tax_query[] = [
+            'taxonomy' => 'branch_country',
+            'field' => 'term_id',
+            'terms' => $selected_country
+        ];
+    }
+    if ($selected_city) {
+        $tax_query[] = [
+            'taxonomy' => 'branch_city',
+            'field' => 'term_id',
+            'terms' => $selected_city
+        ];
+    }
+    if (!empty($tax_query)) {
+        $query_args['tax_query'] = $tax_query;
+    }
+    
+    $branches = new WP_Query($query_args);
+    
+    // Get all branches for map (not paginated)
+    $all_branches = new WP_Query(['post_type' => 'branch', 'posts_per_page' => -1]);
     ?>
 
     <!-- Micromodal CSS -->
@@ -47,6 +90,7 @@ function bm_branch_map_shortcode() {
           grid-template-columns: repeat(3, 1fr);
           gap: 20px;
           margin-top: 20px;
+          margin-bottom: 30px;
       }
       @media (max-width: 992px) {
           .branch-grid {
@@ -92,6 +136,57 @@ function bm_branch_map_shortcode() {
           margin: 3px 0;
           font-size: 0.9em;
           color: white;
+      }
+
+      /* Pagination */
+      .branch-pagination {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 10px;
+          margin: 30px 0;
+      }
+      .branch-pagination a,
+      .branch-pagination span {
+          padding: 8px 15px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          text-decoration: none;
+          color: #330A48;
+          transition: all 0.3s;
+      }
+      .branch-pagination a:hover {
+          background: #330A48;
+          color: white;
+          border-color: #330A48;
+      }
+      .branch-pagination .current {
+          background: #330A48;
+          color: white;
+          border-color: #330A48;
+      }
+
+      /* Map Section */
+      .branch-map-section {
+          margin-top: 30px;
+      }
+      .map-toggle-btn {
+          background: #330A48;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 16px;
+          margin-bottom: 15px;
+          transition: background 0.3s;
+      }
+      .map-toggle-btn:hover {
+          background: #4a0e68;
+      }
+      .map-container {
+          display: <?php echo strtolower($atts['show_map']) === 'true' ? 'block' : 'none'; ?>;
+          margin-top: 15px;
       }
 
       /* Tooltip styles */
@@ -177,7 +272,8 @@ function bm_branch_map_shortcode() {
         <select id="country-filter">
             <option value="">All Countries</option>
             <?php foreach($countries as $country): ?>
-                <option value="<?php echo esc_attr($country->term_id); ?>">
+                <option value="<?php echo esc_attr($country->term_id); ?>" 
+                        <?php selected($selected_country, $country->term_id); ?>>
                     <?php echo esc_html($country->name); ?>
                 </option>
             <?php endforeach; ?>
@@ -187,49 +283,81 @@ function bm_branch_map_shortcode() {
             <option value="">All Cities</option>
             <?php foreach($cities as $city): ?>
                 <option value="<?php echo esc_attr($city->term_id); ?>" 
-                        data-country="<?php echo esc_attr(get_term_meta($city->term_id, 'parent_country', true)); ?>">
+                        <?php selected($selected_city, $city->term_id); ?>>
                     <?php echo esc_html($city->name); ?>
                 </option>
             <?php endforeach; ?>
         </select>
     </div>
 
-    <!-- Map -->
-    <div id="branch-map" style="height:400px; width:100%;"></div>
-
     <!-- Branches Grid -->
     <div class="branch-grid">
-        <?php while($branches->have_posts()): $branches->the_post(); 
-            $contact   = get_post_meta(get_the_ID(), '_branch_contact', true);
-            $address   = get_post_meta(get_the_ID(), '_branch_address', true);
-            $lat       = get_post_meta(get_the_ID(), '_branch_lat', true);
-            $lng       = get_post_meta(get_the_ID(), '_branch_lng', true);
-            
-            $branch_countries = wp_get_post_terms(get_the_ID(), 'branch_country', ['fields' => 'ids']);
-            $branch_cities = wp_get_post_terms(get_the_ID(), 'branch_city', ['fields' => 'ids']);
-            $country_ids = !empty($branch_countries) ? implode(',', $branch_countries) : '';
-            $city_ids = !empty($branch_cities) ? implode(',', $branch_cities) : '';
-            
-            $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'medium') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
-        ?>
-            <div class="branch-card" 
-                 data-branch-id="<?php echo get_the_ID(); ?>"
-                 data-title="<?php echo esc_attr(get_the_title()); ?>"
-                 data-address="<?php echo esc_attr($address); ?>"
-                 data-contact="<?php echo esc_attr($contact); ?>"
-                 data-lat="<?php echo esc_attr($lat); ?>"
-                 data-lng="<?php echo esc_attr($lng); ?>"
-                 data-country="<?php echo esc_attr($country_ids); ?>"
-                 data-city="<?php echo esc_attr($city_ids); ?>"
-                 onclick="openBranchModal(<?php echo get_the_ID(); ?>)">
-                <div class="branch-image" style="background-image: url('<?php echo esc_url($image_url); ?>');"></div>
-                <div class="branch-info">
-                    <h3><?php the_title(); ?></h3>
-                    <p><strong>Address:</strong> <?php echo esc_html($address); ?></p>
-                    <p><strong>Contact:</strong> <?php echo esc_html($contact); ?></p>
+        <?php 
+        if ($branches->have_posts()) {
+            while($branches->have_posts()): $branches->the_post(); 
+                $contact   = get_post_meta(get_the_ID(), '_branch_contact', true);
+                $address   = get_post_meta(get_the_ID(), '_branch_address', true);
+                $lat       = get_post_meta(get_the_ID(), '_branch_lat', true);
+                $lng       = get_post_meta(get_the_ID(), '_branch_lng', true);
+                
+                $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'medium') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
+            ?>
+                <div class="branch-card" 
+                     data-branch-id="<?php echo get_the_ID(); ?>"
+                     onclick="openBranchModal(<?php echo get_the_ID(); ?>)">
+                    <div class="branch-image" style="background-image: url('<?php echo esc_url($image_url); ?>');"></div>
+                    <div class="branch-info">
+                        <h3><?php the_title(); ?></h3>
+                        <p><strong>Address:</strong> <?php echo esc_html($address); ?></p>
+                        <p><strong>Contact:</strong> <?php echo esc_html($contact); ?></p>
+                    </div>
                 </div>
-            </div>
-        <?php endwhile; wp_reset_postdata(); ?>
+            <?php 
+            endwhile;
+        } else {
+            echo '<p style="grid-column: 1/-1; text-align: center; padding: 40px;">No branches found.</p>';
+        }
+        ?>
+    </div>
+
+    <!-- Pagination -->
+    <?php if ($branches->max_num_pages > 1): ?>
+    <div class="branch-pagination">
+        <?php
+        $base_url = remove_query_arg('branch_page');
+        if ($selected_country) $base_url = add_query_arg('country', $selected_country, $base_url);
+        if ($selected_city) $base_url = add_query_arg('city', $selected_city, $base_url);
+        
+        // Previous
+        if ($current_page > 1) {
+            echo '<a href="' . esc_url(add_query_arg('branch_page', $current_page - 1, $base_url)) . '">« Previous</a>';
+        }
+        
+        // Page numbers
+        for ($i = 1; $i <= $branches->max_num_pages; $i++) {
+            if ($i == $current_page) {
+                echo '<span class="current">' . $i . '</span>';
+            } else {
+                echo '<a href="' . esc_url(add_query_arg('branch_page', $i, $base_url)) . '">' . $i . '</a>';
+            }
+        }
+        
+        // Next
+        if ($current_page < $branches->max_num_pages) {
+            echo '<a href="' . esc_url(add_query_arg('branch_page', $current_page + 1, $base_url)) . '">Next »</a>';
+        }
+        ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- Map Section (Below Cards) -->
+    <div class="branch-map-section">
+        <button class="map-toggle-btn" id="map-toggle">
+            <span id="map-toggle-text"><?php echo strtolower($atts['show_map']) === 'true' ? 'Hide' : 'Show'; ?> Map</span>
+        </button>
+        <div class="map-container" id="map-container">
+            <div id="branch-map" style="height:400px; width:100%;"></div>
+        </div>
     </div>
 
     <!-- Modal Template -->
@@ -262,8 +390,8 @@ function bm_branch_map_shortcode() {
     // Branch data for modal
     const branchData = {};
     <?php 
-    $branches->rewind_posts();
-    while($branches->have_posts()): $branches->the_post(); 
+    $all_branches->rewind_posts();
+    while($all_branches->have_posts()): $all_branches->the_post(); 
         $contact = get_post_meta(get_the_ID(), '_branch_contact', true);
         $address = get_post_meta(get_the_ID(), '_branch_address', true);
         $lat = get_post_meta(get_the_ID(), '_branch_lat', true);
@@ -297,29 +425,88 @@ function bm_branch_map_shortcode() {
         MicroModal.show('branch-modal');
     }
 
-    document.addEventListener("DOMContentLoaded", function() {
-        var map = L.map('branch-map').setView([14.5995, 120.9842], 6);
+    // Map toggle functionality
+    document.getElementById('map-toggle').addEventListener('click', function() {
+        const mapContainer = document.getElementById('map-container');
+        const toggleText = document.getElementById('map-toggle-text');
+        
+        if (mapContainer.style.display === 'none') {
+            mapContainer.style.display = 'block';
+            toggleText.textContent = 'Hide Map';
+            // Initialize map if not already done
+            if (!window.branchMapInitialized) {
+                initializeMap();
+            }
+        } else {
+            mapContainer.style.display = 'none';
+            toggleText.textContent = 'Show Map';
+        }
+    });
+
+    // Filter with URL parameters
+    const countryFilter = document.getElementById('country-filter');
+    const cityFilter = document.getElementById('city-filter');
+    
+    if (countryFilter) {
+        countryFilter.addEventListener('change', function() {
+            updateURLFilters();
+        });
+    }
+    
+    cityFilter.addEventListener('change', function() {
+        updateURLFilters();
+    });
+
+    function updateURLFilters() {
+        const url = new URL(window.location);
+        const country = countryFilter ? countryFilter.value : '';
+        const city = cityFilter.value;
+        
+        // Update URL parameters
+        if (country) {
+            url.searchParams.set('country', country);
+        } else {
+            url.searchParams.delete('country');
+        }
+        
+        if (city) {
+            url.searchParams.set('city', city);
+        } else {
+            url.searchParams.delete('city');
+        }
+        
+        // Remove page parameter when filtering
+        url.searchParams.delete('branch_page');
+        
+        // Reload with new parameters
+        window.location.href = url.toString();
+    }
+
+    // Initialize map
+    let branchMap = null;
+    window.branchMapInitialized = false;
+
+    function initializeMap() {
+        if (window.branchMapInitialized) return;
+        
+        branchMap = L.map('branch-map').setView([14.5995, 120.9842], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+        }).addTo(branchMap);
 
-        var markers = [];
-        var markerObjects = {};
+        const markers = [];
 
         <?php 
-        $branches->rewind_posts();
-        while($branches->have_posts()): $branches->the_post(); 
+        $all_branches->rewind_posts();
+        while($all_branches->have_posts()): $all_branches->the_post(); 
             $lat = get_post_meta(get_the_ID(), '_branch_lat', true);
             $lng = get_post_meta(get_the_ID(), '_branch_lng', true);
-            $contact = get_post_meta(get_the_ID(), '_branch_contact', true);
-            $address = get_post_meta(get_the_ID(), '_branch_address', true);
             $branch_id = get_the_ID();
             
             if ($lat && $lng) {
-                $photo = has_post_thumbnail() ? wp_get_attachment_image_url(get_post_thumbnail_id(), 'thumbnail') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
                 ?>
-                var marker = L.marker([<?php echo esc_js($lat); ?>, <?php echo esc_js($lng); ?>])
-                  .addTo(map)
+                const marker<?php echo $branch_id; ?> = L.marker([<?php echo esc_js($lat); ?>, <?php echo esc_js($lng); ?>])
+                  .addTo(branchMap)
                   .bindTooltip("<?php echo addslashes(get_the_title()); ?>", { 
                       permanent: true, 
                       direction: "right", 
@@ -329,8 +516,7 @@ function bm_branch_map_shortcode() {
                       openBranchModal(<?php echo $branch_id; ?>);
                   });
 
-                markers.push(marker);
-                markerObjects[<?php echo $branch_id; ?>] = marker;
+                markers.push(marker<?php echo $branch_id; ?>);
                 <?php
             }
         endwhile; wp_reset_postdata();
@@ -338,62 +524,25 @@ function bm_branch_map_shortcode() {
 
         // Auto fit map to markers
         if (markers.length > 0) {
-            var group = L.featureGroup(markers);
-            map.fitBounds(group.getBounds(), {
+            const group = L.featureGroup(markers);
+            branchMap.fitBounds(group.getBounds(), {
                 padding: [50, 50],
                 maxZoom: 14
             });
         }
 
-        // Filter functionality
-        const searchInput = document.getElementById('branch-search');
-        const countryFilter = document.getElementById('country-filter');
-        const cityFilter = document.getElementById('city-filter');
-        const branchCards = document.querySelectorAll('.branch-card');
+        window.branchMapInitialized = true;
+    }
 
-        function filterBranches() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const selectedCountry = countryFilter ? countryFilter.value : '';
-            const selectedCity = cityFilter.value;
-
-            branchCards.forEach(card => {
-                const title = card.dataset.title.toLowerCase();
-                const address = card.dataset.address.toLowerCase();
-                const country = card.dataset.country;
-                const city = card.dataset.city;
-
-                const matchesSearch = title.includes(searchTerm) || address.includes(searchTerm);
-                const matchesCountry = !selectedCountry || country.split(',').includes(selectedCountry);
-                const matchesCity = !selectedCity || city.split(',').includes(selectedCity);
-
-                if (matchesSearch && matchesCountry && matchesCity) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-
-            // Update visible markers
-            Object.keys(markerObjects).forEach(branchId => {
-                const card = document.querySelector(`[data-branch-id="${branchId}"]`);
-                if (card && card.style.display === 'none') {
-                    map.removeLayer(markerObjects[branchId]);
-                } else if (card && card.style.display !== 'none') {
-                    if (!map.hasLayer(markerObjects[branchId])) {
-                        markerObjects[branchId].addTo(map);
-                    }
-                }
-            });
-        }
-
-        searchInput.addEventListener('input', filterBranches);
-        if (countryFilter) {
-            countryFilter.addEventListener('change', filterBranches);
-        }
-        cityFilter.addEventListener('change', filterBranches);
+    // Initialize map if visible by default
+    <?php if (strtolower($atts['show_map']) === 'true'): ?>
+    document.addEventListener("DOMContentLoaded", function() {
+        initializeMap();
     });
+    <?php endif; ?>
     </script>
     <?php
+    wp_reset_postdata();
     return ob_get_clean();
 }
 add_shortcode('branch_map', 'bm_branch_map_shortcode');
