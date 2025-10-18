@@ -47,7 +47,7 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         protocol: ftp
         port: 21
-        server-dir: /public_html/wp-content/plugins/branch-manager/
+        server-dir: /domains/modernchameleonph.com/public_html/wp-content/plugins/branch-manager/
         exclude: |
           **/.git*
           **/.git*/**
