@@ -252,7 +252,7 @@ function bm_branch_map_shortcode($atts) {
           box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       }
 
-      /* Modal Styles */
+      /* Modern Modal Styles */
       .modal {
           display: none;
       }
@@ -265,54 +265,178 @@ function bm_branch_map_shortcode($atts) {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0,0,0,0.6);
+          background: rgba(0, 0, 0, 0.75);
           display: flex;
           justify-content: center;
           align-items: center;
           z-index: 10000;
+          backdrop-filter: blur(5px);
       }
       .modal__container {
-          background-color: #fff;
-          padding: 30px;
-          max-width: 600px;
-          max-height: 90vh;
-          border-radius: 12px;
-          overflow-y: auto;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+          background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+          padding: 0;
+          max-width: 800px;
+          width: 90%;
+          max-height: 85vh;
+          border-radius: 20px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
           position: relative;
+          animation: modalSlideUp 0.3s ease-out;
       }
+      
+      @keyframes modalSlideUp {
+          from {
+              opacity: 0;
+              transform: translateY(50px);
+          }
+          to {
+              opacity: 1;
+              transform: translateY(0);
+          }
+      }
+      
       .modal__header {
+          background: linear-gradient(135deg, #330A48 0%, #4a0e68 100%);
+          color: white;
+          padding: 25px 30px;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
+          border-bottom: none;
       }
+      
       .modal__title {
           margin: 0;
-          font-size: 1.5em;
-          color: #330A48;
+          font-size: 1.8em;
+          font-weight: 600;
+          color: white;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
       }
+      
       .modal__close {
-          background: transparent;
+          background: rgba(255, 255, 255, 0.2);
           border: none;
-          font-size: 28px;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          font-size: 24px;
           cursor: pointer;
-          color: #999;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+          padding: 0;
+          line-height: 1;
       }
+      
       .modal__close:hover {
-          color: #330A48;
+          background: rgba(255, 255, 255, 0.3);
+          transform: rotate(90deg);
       }
+      
+      .modal__content {
+          padding: 35px;
+          overflow-y: auto;
+          max-height: calc(85vh - 90px);
+      }
+      
+      .modal__content::-webkit-scrollbar {
+          width: 8px;
+      }
+      
+      .modal__content::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+      }
+      
+      .modal__content::-webkit-scrollbar-thumb {
+          background: #330A48;
+          border-radius: 10px;
+      }
+      
+      .modal__content::-webkit-scrollbar-thumb:hover {
+          background: #4a0e68;
+      }
+      
       .modal__content img {
           width: 100%;
-          border-radius: 8px;
-          margin-bottom: 15px;
+          height: 350px;
+          object-fit: cover;
+          border-radius: 15px;
+          margin-bottom: 25px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
       }
-      .modal__content p {
-          margin: 10px 0;
+      
+      .modal__content .branch-details {
+          display: grid;
+          gap: 20px;
+      }
+      
+      .modal__content .detail-item {
+          background: white;
+          padding: 20px;
+          border-radius: 12px;
+          border-left: 4px solid #330A48;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s ease;
+      }
+      
+      .modal__content .detail-item:hover {
+          transform: translateX(5px);
+      }
+      
+      .modal__content .detail-item strong {
+          display: block;
+          color: #330A48;
+          font-size: 0.9em;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 8px;
+          font-weight: 700;
+      }
+      
+      .modal__content .detail-item .detail-value {
+          color: #333;
+          font-size: 1.1em;
           line-height: 1.6;
       }
-      .modal__content strong {
-          color: #330A48;
+      
+      .modal__content .detail-item.branch-name {
+          background: linear-gradient(135deg, #330A48 0%, #4a0e68 100%);
+          color: white;
+          border: none;
+          text-align: center;
+      }
+      
+      .modal__content .detail-item.branch-name strong {
+          display: none;
+      }
+      
+      .modal__content .detail-item.branch-name .detail-value {
+          color: white;
+          font-size: 1.5em;
+          font-weight: 600;
+      }
+      
+      @media (max-width: 768px) {
+          .modal__container {
+              width: 95%;
+              max-height: 90vh;
+          }
+          
+          .modal__title {
+              font-size: 1.4em;
+          }
+          
+          .modal__content {
+              padding: 20px;
+          }
+          
+          .modal__content img {
+              height: 250px;
+          }
       }
     </style>
 
@@ -468,7 +592,7 @@ function bm_branch_map_shortcode($atts) {
         $address = get_post_meta(get_the_ID(), '_branch_address', true);
         $lat = get_post_meta(get_the_ID(), '_branch_lat', true);
         $lng = get_post_meta(get_the_ID(), '_branch_lng', true);
-        $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'medium') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
+        $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'large') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
         
         $branch_countries = wp_get_post_terms(get_the_ID(), 'branch_country', ['fields' => 'ids']);
         $branch_cities = wp_get_post_terms(get_the_ID(), 'branch_city', ['fields' => 'ids']);
@@ -485,20 +609,30 @@ function bm_branch_map_shortcode($atts) {
     };
     <?php endwhile; wp_reset_postdata(); ?>
 
-    // Open branch modal
+    // Open branch modal with modern layout
     function openBranchModal(branchId) {
         const branch = branchData[branchId];
         if (!branch) return;
 
         const content = `
             <img src="${branch.image}" alt="${branch.title}">
-            <p><strong>Branch:</strong> ${branch.title}</p>
-            <p><strong>Address:</strong> ${branch.address}</p>
-            <p><strong>Contact:</strong> ${branch.contact}</p>
-            ${branch.lat && branch.lng ? `<p><strong>Location:</strong> ${branch.lat}, ${branch.lng}</p>` : ''}
+            <div class="branch-details">
+                <div class="detail-item branch-name">
+                    <div class="detail-value">${branch.title}</div>
+                </div>
+                <div class="detail-item">
+                    <strong>📍 Address</strong>
+                    <div class="detail-value">${branch.address}</div>
+                </div>
+                <div class="detail-item">
+                    <strong>📞 Contact Number</strong>
+                    <div class="detail-value">${branch.contact}</div>
+                </div>
+            </div>
         `;
         
         document.getElementById('branch-modal-content').innerHTML = content;
+        document.getElementById('branch-modal-title').textContent = 'Branch Information';
         MicroModal.show('branch-modal');
     }
 
