@@ -14,13 +14,15 @@ function bm_branch_map_shortcode($atts) {
     
     ob_start();
     
-    // Get URL parameters for country/city selection
+    // Get URL parameters for country/province/city selection
     $selected_country = isset($_GET['country']) ? intval($_GET['country']) : '';
+    $selected_province = isset($_GET['province']) ? intval($_GET['province']) : '';
     $selected_city = isset($_GET['city']) ? intval($_GET['city']) : '';
     $current_page = isset($_GET['branch_page']) ? max(1, intval($_GET['branch_page'])) : 1;
     
-    // Get all countries and cities
+    // Get all countries, provinces and cities
     $countries = get_terms(['taxonomy' => 'branch_country', 'hide_empty' => true]);
+    $provinces = get_terms(['taxonomy' => 'branch_province', 'hide_empty' => true]);
     $cities = get_terms(['taxonomy' => 'branch_city', 'hide_empty' => true]);
     $country_count = is_array($countries) ? count($countries) : 0;
     
@@ -31,13 +33,20 @@ function bm_branch_map_shortcode($atts) {
         'paged' => $current_page
     ];
     
-    // Add tax query if country or city selected
+    // Add tax query if country/province/city selected
     $tax_query = [];
     if ($selected_country) {
         $tax_query[] = [
             'taxonomy' => 'branch_country',
             'field' => 'term_id',
             'terms' => $selected_country
+        ];
+    }
+    if ($selected_province) {
+        $tax_query[] = [
+            'taxonomy' => 'branch_province',
+            'field' => 'term_id',
+            'terms' => $selected_province
         ];
     }
     if ($selected_city) {
@@ -61,13 +70,23 @@ function bm_branch_map_shortcode($atts) {
     <link rel="stylesheet" href="https://unpkg.com/micromodal/dist/micromodal.css">
 
     <style>
-      /* Filter Section */
+      /* Filter Section - Two Row Layout */
       .branch-filters {
           display: flex;
-          gap: 20px;
+          flex-direction: column;
+          gap: 15px;
           margin-bottom: 30px;
+      }
+      
+      .filter-row {
+          display: flex;
+          gap: 20px;
           flex-wrap: wrap;
           align-items: flex-end;
+      }
+      
+      .filter-row.first-row {
+          width: 100%;
       }
       
       .filter-group {
@@ -135,16 +154,13 @@ function bm_branch_map_shortcode($atts) {
           .branch-grid {
               grid-template-columns: repeat(2, 1fr);
           }
-          .branch-filters {
-              gap: 15px;
-          }
-          .filter-group.search-group {
-              min-width: 100%;
-          }
       }
       @media (max-width: 576px) {
           .branch-grid {
               grid-template-columns: 1fr;
+          }
+          .filter-group.search-group {
+              min-width: 100%;
           }
           .filter-group {
               width: 100%;
@@ -440,39 +456,58 @@ function bm_branch_map_shortcode($atts) {
       }
     </style>
 
-    <!-- Filters -->
+    <!-- Filters - Two Row Layout -->
     <div class="branch-filters">
-        <div class="filter-group search-group">
-            <label for="branch-search">Search Branches</label>
-            <input type="text" id="branch-search" placeholder="Search by name or address...">
+        <!-- First Row: Search -->
+        <div class="filter-row first-row">
+            <div class="filter-group search-group">
+                <label for="branch-search">Search Branches</label>
+                <input type="text" id="branch-search" placeholder="Search by name or address...">
+            </div>
         </div>
         
-        <?php if ($country_count > 1): ?>
-        <div class="filter-group">
-            <label for="country-filter">Country</label>
-            <select id="country-filter">
-                <option value="">All Countries</option>
-                <?php foreach($countries as $country): ?>
-                    <option value="<?php echo esc_attr($country->term_id); ?>" 
-                            <?php selected($selected_country, $country->term_id); ?>>
-                        <?php echo esc_html($country->name); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <?php endif; ?>
-        
-        <div class="filter-group">
-            <label for="city-filter">City</label>
-            <select id="city-filter">
-                <option value="">All Cities</option>
-                <?php foreach($cities as $city): ?>
-                    <option value="<?php echo esc_attr($city->term_id); ?>" 
-                            <?php selected($selected_city, $city->term_id); ?>>
-                        <?php echo esc_html($city->name); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+        <!-- Second Row: Province and City -->
+        <div class="filter-row">
+            <?php if ($country_count > 1): ?>
+            <div class="filter-group">
+                <label for="country-filter">Country</label>
+                <select id="country-filter">
+                    <option value="">All Countries</option>
+                    <?php foreach($countries as $country): ?>
+                        <option value="<?php echo esc_attr($country->term_id); ?>" 
+                                <?php selected($selected_country, $country->term_id); ?>>
+                            <?php echo esc_html($country->name); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <?php endif; ?>
+            
+            <div class="filter-group">
+                <label for="province-filter">Province</label>
+                <select id="province-filter">
+                    <option value="">All Provinces</option>
+                    <?php foreach($provinces as $province): ?>
+                        <option value="<?php echo esc_attr($province->term_id); ?>" 
+                                <?php selected($selected_province, $province->term_id); ?>>
+                            <?php echo esc_html($province->name); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="city-filter">City</label>
+                <select id="city-filter">
+                    <option value="">All Cities</option>
+                    <?php foreach($cities as $city): ?>
+                        <option value="<?php echo esc_attr($city->term_id); ?>" 
+                                <?php selected($selected_city, $city->term_id); ?>>
+                            <?php echo esc_html($city->name); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -487,8 +522,10 @@ function bm_branch_map_shortcode($atts) {
                 $lng       = get_post_meta(get_the_ID(), '_branch_lng', true);
                 
                 $branch_countries = wp_get_post_terms(get_the_ID(), 'branch_country', ['fields' => 'ids']);
+                $branch_provinces = wp_get_post_terms(get_the_ID(), 'branch_province', ['fields' => 'ids']);
                 $branch_cities = wp_get_post_terms(get_the_ID(), 'branch_city', ['fields' => 'ids']);
                 $country_ids = !empty($branch_countries) ? implode(',', $branch_countries) : '';
+                $province_ids = !empty($branch_provinces) ? implode(',', $branch_provinces) : '';
                 $city_ids = !empty($branch_cities) ? implode(',', $branch_cities) : '';
                 
                 $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'medium') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
@@ -499,6 +536,7 @@ function bm_branch_map_shortcode($atts) {
                      data-address="<?php echo esc_attr($address); ?>"
                      data-contact="<?php echo esc_attr($contact); ?>"
                      data-country="<?php echo esc_attr($country_ids); ?>"
+                     data-province="<?php echo esc_attr($province_ids); ?>"
                      data-city="<?php echo esc_attr($city_ids); ?>"
                      onclick="openBranchModal(<?php echo get_the_ID(); ?>)">
                     <div class="branch-image" style="background-image: url('<?php echo esc_url($image_url); ?>');"></div>
@@ -522,6 +560,7 @@ function bm_branch_map_shortcode($atts) {
         <?php
         $base_url = remove_query_arg('branch_page');
         if ($selected_country) $base_url = add_query_arg('country', $selected_country, $base_url);
+        if ($selected_province) $base_url = add_query_arg('province', $selected_province, $base_url);
         if ($selected_city) $base_url = add_query_arg('city', $selected_city, $base_url);
         
         // Previous
@@ -595,6 +634,7 @@ function bm_branch_map_shortcode($atts) {
         $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'large') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
         
         $branch_countries = wp_get_post_terms(get_the_ID(), 'branch_country', ['fields' => 'ids']);
+        $branch_provinces = wp_get_post_terms(get_the_ID(), 'branch_province', ['fields' => 'ids']);
         $branch_cities = wp_get_post_terms(get_the_ID(), 'branch_city', ['fields' => 'ids']);
     ?>
     branchData[<?php echo get_the_ID(); ?>] = {
@@ -605,6 +645,7 @@ function bm_branch_map_shortcode($atts) {
         lat: "<?php echo esc_js($lat); ?>",
         lng: "<?php echo esc_js($lng); ?>",
         countries: [<?php echo !empty($branch_countries) ? implode(',', $branch_countries) : ''; ?>],
+        provinces: [<?php echo !empty($branch_provinces) ? implode(',', $branch_provinces) : ''; ?>],
         cities: [<?php echo !empty($branch_cities) ? implode(',', $branch_cities) : ''; ?>]
     };
     <?php endwhile; wp_reset_postdata(); ?>
@@ -657,12 +698,14 @@ function bm_branch_map_shortcode($atts) {
     // Search and filter functionality
     const searchInput = document.getElementById('branch-search');
     const countryFilter = document.getElementById('country-filter');
+    const provinceFilter = document.getElementById('province-filter');
     const cityFilter = document.getElementById('city-filter');
     const branchCards = document.querySelectorAll('.branch-card');
 
     function filterBranches() {
         const searchTerm = searchInput.value.toLowerCase();
         const selectedCountry = countryFilter ? countryFilter.value : '';
+        const selectedProvince = provinceFilter.value;
         const selectedCity = cityFilter.value;
 
         let visibleBranchIds = [];
@@ -672,13 +715,15 @@ function bm_branch_map_shortcode($atts) {
             const title = card.dataset.title.toLowerCase();
             const address = card.dataset.address.toLowerCase();
             const country = card.dataset.country;
+            const province = card.dataset.province;
             const city = card.dataset.city;
 
             const matchesSearch = title.includes(searchTerm) || address.includes(searchTerm);
             const matchesCountry = !selectedCountry || country.split(',').includes(selectedCountry);
+            const matchesProvince = !selectedProvince || province.split(',').includes(selectedProvince);
             const matchesCity = !selectedCity || city.split(',').includes(selectedCity);
 
-            if (matchesSearch && matchesCountry && matchesCity) {
+            if (matchesSearch && matchesCountry && matchesProvince && matchesCity) {
                 card.style.display = 'block';
                 visibleBranchIds.push(branchId);
             } else {
@@ -702,6 +747,10 @@ function bm_branch_map_shortcode($atts) {
         });
     }
     
+    provinceFilter.addEventListener('change', function() {
+        updateURLFilters();
+    });
+    
     cityFilter.addEventListener('change', function() {
         updateURLFilters();
     });
@@ -709,6 +758,7 @@ function bm_branch_map_shortcode($atts) {
     function updateURLFilters() {
         const url = new URL(window.location);
         const country = countryFilter ? countryFilter.value : '';
+        const province = provinceFilter.value;
         const city = cityFilter.value;
         
         // Update URL parameters
@@ -716,6 +766,12 @@ function bm_branch_map_shortcode($atts) {
             url.searchParams.set('country', country);
         } else {
             url.searchParams.delete('country');
+        }
+        
+        if (province) {
+            url.searchParams.set('province', province);
+        } else {
+            url.searchParams.delete('province');
         }
         
         if (city) {

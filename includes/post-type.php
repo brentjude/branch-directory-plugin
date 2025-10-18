@@ -64,6 +64,38 @@ function bm_register_country_taxonomy() {
 add_action('init', 'bm_register_country_taxonomy');
 
 /**
+ * Register Province Taxonomy
+ */
+function bm_register_province_taxonomy() {
+    $labels = [
+        'name'              => 'Provinces',
+        'singular_name'     => 'Province',
+        'search_items'      => 'Search Provinces',
+        'all_items'         => 'All Provinces',
+        'parent_item'       => 'Parent Province',
+        'parent_item_colon' => 'Parent Province:',
+        'edit_item'         => 'Edit Province',
+        'update_item'       => 'Update Province',
+        'add_new_item'      => 'Add New Province',
+        'new_item_name'     => 'New Province Name',
+        'menu_name'         => 'Provinces',
+    ];
+
+    $args = [
+        'hierarchical'      => true,
+        'labels'            => $labels,
+        'show_ui'           => true,
+        'show_admin_column' => true,
+        'query_var'         => true,
+        'rewrite'           => ['slug' => 'province'],
+        'show_in_rest'      => true,
+    ];
+
+    register_taxonomy('branch_province', ['branch'], $args);
+}
+add_action('init', 'bm_register_province_taxonomy');
+
+/**
  * Register City Taxonomy
  */
 function bm_register_city_taxonomy() {
