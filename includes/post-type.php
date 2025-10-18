@@ -32,6 +32,70 @@ function bm_register_branch_cpt() {
 add_action('init', 'bm_register_branch_cpt');
 
 /**
+ * Register Country Taxonomy
+ */
+function bm_register_country_taxonomy() {
+    $labels = [
+        'name'              => 'Countries',
+        'singular_name'     => 'Country',
+        'search_items'      => 'Search Countries',
+        'all_items'         => 'All Countries',
+        'parent_item'       => 'Parent Country',
+        'parent_item_colon' => 'Parent Country:',
+        'edit_item'         => 'Edit Country',
+        'update_item'       => 'Update Country',
+        'add_new_item'      => 'Add New Country',
+        'new_item_name'     => 'New Country Name',
+        'menu_name'         => 'Countries',
+    ];
+
+    $args = [
+        'hierarchical'      => true,
+        'labels'            => $labels,
+        'show_ui'           => true,
+        'show_admin_column' => true,
+        'query_var'         => true,
+        'rewrite'           => ['slug' => 'country'],
+        'show_in_rest'      => true,
+    ];
+
+    register_taxonomy('branch_country', ['branch'], $args);
+}
+add_action('init', 'bm_register_country_taxonomy');
+
+/**
+ * Register City Taxonomy
+ */
+function bm_register_city_taxonomy() {
+    $labels = [
+        'name'              => 'Cities',
+        'singular_name'     => 'City',
+        'search_items'      => 'Search Cities',
+        'all_items'         => 'All Cities',
+        'parent_item'       => 'Parent City',
+        'parent_item_colon' => 'Parent City:',
+        'edit_item'         => 'Edit City',
+        'update_item'       => 'Update City',
+        'add_new_item'      => 'Add New City',
+        'new_item_name'     => 'New City Name',
+        'menu_name'         => 'Cities',
+    ];
+
+    $args = [
+        'hierarchical'      => true,
+        'labels'            => $labels,
+        'show_ui'           => true,
+        'show_admin_column' => true,
+        'query_var'         => true,
+        'rewrite'           => ['slug' => 'city'],
+        'show_in_rest'      => true,
+    ];
+
+    register_taxonomy('branch_city', ['branch'], $args);
+}
+add_action('init', 'bm_register_city_taxonomy');
+
+/**
  * Add Custom Meta Boxes (Contact, Address, Lat, Lng)
  */
 function bm_add_branch_meta_boxes() {
