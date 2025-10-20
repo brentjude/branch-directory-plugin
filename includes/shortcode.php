@@ -327,7 +327,7 @@ function bm_branch_map_shortcode($atts) {
       .modal__container {
           background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
           padding: 0;
-          max-width: 800px;
+          max-width: 1200px;
           width: 90%;
           max-height: 85vh;
           border-radius: 20px;
@@ -551,7 +551,7 @@ function bm_branch_map_shortcode($atts) {
                 $region_ids = !empty($branch_regions) ? implode(',', $branch_regions) : '';
                 $province_ids = !empty($branch_provinces) ? implode(',', $branch_provinces) : '';
                 
-                $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'medium') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
+                $image_url = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), 'full') : plugin_dir_url(__DIR__) . 'assets/no-image.png';
             ?>
                 <div class="branch-card" 
                      data-branch-id="<?php echo get_the_ID(); ?>"
